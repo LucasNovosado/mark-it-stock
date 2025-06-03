@@ -1,14 +1,50 @@
-
-import { BarChart3, Package, TrendingUp, Users, AlertCircle } from "lucide-react";
+// src/components/admin/Dashboard.tsx
+import { BarChart3, Package, TrendingUp, AlertCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useDashboard } from "@/hooks/use-dashboard";
+import { DashboardService } from "@/services/dashboardService";
+import { WithdrawalService } from "@/services/withdrawalService";
+import { ProductService } from "@/services/productService";
 
 const Dashboard = () => {
-  // Dados mock (em produção viria do Supabase)
+  const { dashboardData, loading, error, refetch } = useDashboard();
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+        <p className="text-lg text-gray-600">Carregando dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="animate-fade-in text-center py-12">
+        <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+        <p className="text-lg text-gray-600 mb-4">{error}</p>
+        <Button onClick={refetch} variant="outline">
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Tentar Novamente
+        </Button>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="animate-fade-in text-center py-12">
+        <p className="text-lg text-gray-600">Nenhum dado disponível</p>
+      </div>
+    );
+  }
+
   const stats = [
     {
       title: "Total de Produtos",
-      value: "156",
+      value: dashboardData.totalProducts.toString(),
       change: "+12%",
       icon: Package,
       color: "text-blue-600",
@@ -16,7 +52,7 @@ const Dashboard = () => {
     },
     {
       title: "Retiradas Hoje",
-      value: "23",
+      value: dashboardData.totalWithdrawalsToday.toString(),
       change: "+8%",
       icon: TrendingUp,
       color: "text-green-600",
@@ -24,15 +60,15 @@ const Dashboard = () => {
     },
     {
       title: "Produtos em Falta",
-      value: "8",
-      change: "+3",
+      value: dashboardData.lowStockProducts.toString(),
+      change: dashboardData.lowStockProducts > 0 ? "+3" : "0",
       icon: AlertCircle,
       color: "text-red-600",
       bgColor: "bg-red-50"
     },
     {
       title: "Retiradas Mês",
-      value: "342",
+      value: dashboardData.totalWithdrawalsMonth.toString(),
       change: "+25%",
       icon: BarChart3,
       color: "text-purple-600",
@@ -40,38 +76,17 @@ const Dashboard = () => {
     }
   ];
 
-  const lowStockProducts = [
-    { name: "Banner Roll-up", stock: 2, category: "Gráfico" },
-    { name: "Display de Mesa", stock: 1, category: "Estrutura de Lojas" },
-    { name: "Camisetas P", stock: 3, category: "Brindes" },
-  ];
-
-  const recentWithdrawals = [
-    { 
-      id: "RET001", 
-      supervisor: "João Silva", 
-      destination: "São Paulo - Shopping ABC", 
-      items: 5,
-      time: "há 30 min"
-    },
-    { 
-      id: "RET002", 
-      supervisor: "Maria Santos", 
-      destination: "Rio de Janeiro - Loja Centro", 
-      items: 3,
-      time: "há 1h"
-    },
-    { 
-      id: "RET003", 
-      supervisor: "Pedro Costa", 
-      destination: "Belo Horizonte - Shopping DEF", 
-      items: 8,
-      time: "há 2h"
-    },
-  ];
-
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header com botão de refresh */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+        <Button onClick={refetch} variant="outline" size="sm">
+          <RefreshCw className="w-4 h-4 mr-2" />
+          Atualizar
+        </Button>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => {
@@ -113,17 +128,25 @@ const Dashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {lowStockProducts.map((product, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-xl">
-                <div>
-                  <p className="font-medium text-gray-900">{product.name}</p>
-                  <p className="text-sm text-gray-600">{product.category}</p>
+            {dashboardData.lowStockItems.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">
+                Nenhum produto com estoque baixo
+              </p>
+            ) : (
+              dashboardData.lowStockItems.slice(0, 5).map((product, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-red-50 rounded-xl">
+                  <div>
+                    <p className="font-medium text-gray-900">{product.nome}</p>
+                    <p className="text-sm text-gray-600">
+                      {ProductService.getCategoryName(product.categoria)}
+                    </p>
+                  </div>
+                  <Badge variant="destructive" className="rounded-lg">
+                    {product.quantidade_disponivel} restante{product.quantidade_disponivel !== 1 ? 's' : ''}
+                  </Badge>
                 </div>
-                <Badge variant="destructive" className="rounded-lg">
-                  {product.stock} restante{product.stock !== 1 ? 's' : ''}
-                </Badge>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -136,21 +159,31 @@ const Dashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentWithdrawals.map((withdrawal, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-primary-50 rounded-xl">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-gray-900">#{withdrawal.id}</p>
-                    <span className="text-xs text-gray-500">{withdrawal.time}</span>
+            {dashboardData.recentWithdrawals.length === 0 ? (
+              <p className="text-center text-gray-500 py-4">
+                Nenhuma retirada registrada
+              </p>
+            ) : (
+              dashboardData.recentWithdrawals.map((withdrawal, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-primary-50 rounded-xl">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium text-gray-900">
+                        {withdrawal.produto?.nome || 'Produto não encontrado'}
+                      </p>
+                      <span className="text-xs text-gray-500">
+                        {WithdrawalService.getTimeAgo(withdrawal.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600">{withdrawal.supervisor}</p>
+                    <p className="text-xs text-gray-500">{withdrawal.destino}</p>
                   </div>
-                  <p className="text-sm text-gray-600">{withdrawal.supervisor}</p>
-                  <p className="text-xs text-gray-500">{withdrawal.destination}</p>
+                  <Badge variant="outline" className="ml-3 rounded-lg">
+                    {withdrawal.quantidade} itens
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="ml-3 rounded-lg">
-                  {withdrawal.items} itens
-                </Badge>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
@@ -164,26 +197,34 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              { category: "Gráfico", total: 65, available: 58, color: "bg-blue-500" },
-              { category: "Estrutura de Lojas", total: 45, available: 38, color: "bg-green-500" },
-              { category: "Brindes", total: 46, available: 41, color: "bg-purple-500" }
-            ].map((item, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-900">{item.category}</span>
-                  <span className="text-sm text-gray-600">
-                    {item.available}/{item.total} disponíveis
-                  </span>
+            {dashboardData.productsByCategory.map((item, index) => {
+              const colors = [
+                { bg: "bg-blue-500", light: "bg-blue-100" },
+                { bg: "bg-green-500", light: "bg-green-100" },
+                { bg: "bg-purple-500", light: "bg-purple-100" }
+              ];
+              const color = colors[index % colors.length];
+              const percentage = dashboardData.productsByCategory.length > 0 
+                ? Math.round((item.available / dashboardData.productsByCategory.reduce((sum, cat) => sum + cat.available, 0)) * 100)
+                : 0;
+
+              return (
+                <div key={index} className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-900">{item.categoria}</span>
+                    <span className="text-sm text-gray-600">
+                      {item.available} disponíveis de {item.total} produtos
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div 
+                      className={`h-3 rounded-full ${color.bg}`}
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div 
-                    className={`h-3 rounded-full ${item.color}`}
-                    style={{ width: `${(item.available / item.total) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

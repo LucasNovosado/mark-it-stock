@@ -1,4 +1,4 @@
-
+// src/components/admin/AdminLogin.tsx
 import { useState } from "react";
 import { Shield, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 interface AdminLoginProps {
   onLogin: () => void;
@@ -13,21 +14,25 @@ interface AdminLoginProps {
 
 const AdminLogin = ({ onLogin }: AdminLoginProps) => {
   const navigate = useNavigate();
+  const { login, loading } = useAdminAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validação simples (em produção, seria validado no backend)
+    // Validação básica
     const newErrors: {[key: string]: string} = {};
     
     if (!formData.email.trim()) {
       newErrors.email = 'Email é obrigatório';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email inválido';
     }
     
     if (!formData.password.trim()) {
@@ -37,11 +42,21 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
     setErrors(newErrors);
     
     if (Object.keys(newErrors).length === 0) {
-      // Login mock - em produção seria validado com Supabase
-      if (formData.email === 'admin@empresa.com' && formData.password === 'admin123') {
-        onLogin();
-      } else {
-        setErrors({ general: 'Email ou senha incorretos' });
+      setIsSubmitting(true);
+      
+      try {
+        const success = await login({
+          email: formData.email,
+          password: formData.password
+        });
+        
+        if (success) {
+          onLogin();
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -61,6 +76,7 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
           variant="ghost"
           onClick={() => navigate('/')}
           className="mb-6 rounded-xl"
+          disabled={isSubmitting}
         >
           ← Voltar ao Início
         </Button>
@@ -80,12 +96,6 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
 
           <CardContent className="pb-8">
             <form onSubmit={handleSubmit} className="space-y-6">
-              {errors.general && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                  <p className="text-sm text-red-600">{errors.general}</p>
-                </div>
-              )}
-
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-base font-medium text-gray-700">
                   Email
@@ -97,6 +107,7 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
                   value={formData.email}
                   onChange={(e) => handleChange('email', e.target.value)}
                   className={`h-12 rounded-xl text-base ${errors.email ? 'border-red-500' : ''}`}
+                  disabled={isSubmitting}
                 />
                 {errors.email && (
                   <p className="text-sm text-red-500">{errors.email}</p>
@@ -115,12 +126,14 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
                     value={formData.password}
                     onChange={(e) => handleChange('password', e.target.value)}
                     className={`h-12 rounded-xl text-base pr-12 ${errors.password ? 'border-red-500' : ''}`}
+                    disabled={isSubmitting}
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-0 top-0 h-12 px-3 rounded-r-xl"
+                    disabled={isSubmitting}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </Button>
@@ -132,16 +145,23 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
 
               <Button 
                 type="submit"
+                disabled={isSubmitting || loading}
                 className="w-full bg-primary hover:bg-primary-600 text-white rounded-xl h-12 text-lg font-medium"
               >
-                Entrar
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Entrando...
+                  </>
+                ) : (
+                  'Entrar'
+                )}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-500">
-                Credenciais de teste:<br />
-                <span className="font-mono bg-gray-100 px-2 py-1 rounded">admin@empresa.com / admin123</span>
+                Acesso restrito a administradores autorizados
               </p>
             </div>
           </CardContent>

@@ -1,59 +1,109 @@
-
+// src/components/admin/ProductForm.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { ProductService } from "@/services/productService";
+import { Product } from "@/types/database";
 
 interface ProductFormProps {
-  product?: any;
-  onSave: (productData: any) => void;
+  product?: Product | null;
+  onSave: () => void;
   onCancel: () => void;
 }
 
 const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
   const [formData, setFormData] = useState({
-    name: '',
-    category: 'grafico',
-    quantity: 0,
-    image: ''
+    nome: '',
+    categoria: 'grafico' as 'grafico' | 'estrutura_lojas' | 'brindes',
+    quantidade_disponivel: 0,
+    imagem_url: ''
   });
 
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (product) {
       setFormData({
-        name: product.name || '',
-        category: product.category || 'grafico',
-        quantity: product.quantity || 0,
-        image: product.image || ''
+        nome: product.nome || '',
+        categoria: product.categoria || 'grafico',
+        quantidade_disponivel: product.quantidade_disponivel || 0,
+        imagem_url: product.imagem_url || ''
       });
     }
   }, [product]);
 
   const categories = [
-    { id: 'grafico', name: 'Gráfico' },
-    { id: 'estrutura_lojas', name: 'Estrutura de Lojas' },
-    { id: 'brindes', name: 'Brindes' },
+    { id: 'grafico' as const, name: 'Gráfico' },
+    { id: 'estrutura_lojas' as const, name: 'Estrutura de Lojas' },
+    { id: 'brindes' as const, name: 'Brindes' },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const newErrors: {[key: string]: string} = {};
     
-    if (!formData.name.trim()) {
-      newErrors.name = 'Nome é obrigatório';
+    if (!formData.nome.trim()) {
+      newErrors.nome = 'Nome é obrigatório';
     }
     
-    if (formData.quantity < 0) {
-      newErrors.quantity = 'Quantidade deve ser positiva';
+    if (formData.quantidade_disponivel < 0) {
+      newErrors.quantidade_disponivel = 'Quantidade deve ser positiva';
+    }
+
+    if (formData.imagem_url && !isValidUrl(formData.imagem_url)) {
+      newErrors.imagem_url = 'URL da imagem inválida';
     }
     
     setErrors(newErrors);
     
     if (Object.keys(newErrors).length === 0) {
-      onSave(formData);
+      setLoading(true);
+      
+      try {
+        if (product) {
+          // Atualizar produto existente
+          await ProductService.updateProduct(product.id, {
+            nome: formData.nome.trim(),
+            categoria: formData.categoria,
+            quantidade_disponivel: formData.quantidade_disponivel,
+            imagem_url: formData.imagem_url.trim() || null
+          });
+          
+          toast({
+            title: "Sucesso",
+            description: "Produto atualizado com sucesso",
+          });
+        } else {
+          // Criar novo produto
+          await ProductService.createProduct({
+            nome: formData.nome.trim(),
+            categoria: formData.categoria,
+            quantidade_disponivel: formData.quantidade_disponivel,
+            imagem_url: formData.imagem_url.trim() || null
+          });
+          
+          toast({
+            title: "Sucesso",
+            description: "Produto criado com sucesso",
+          });
+        }
+        
+        onSave();
+      } catch (error) {
+        console.error('Error saving product:', error);
+        toast({
+          title: "Erro",
+          description: error instanceof Error ? error.message : "Erro ao salvar produto",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -64,33 +114,44 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
     }
   };
 
+  const isValidUrl = (url: string): boolean => {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="name" className="text-base font-medium text-gray-700">
-          Nome do Produto
+        <Label htmlFor="nome" className="text-base font-medium text-gray-700">
+          Nome do Produto *
         </Label>
         <Input
-          id="name"
+          id="nome"
           placeholder="Ex: Banner Roll-up"
-          value={formData.name}
-          onChange={(e) => handleChange('name', e.target.value)}
-          className={`h-12 rounded-xl ${errors.name ? 'border-red-500' : ''}`}
+          value={formData.nome}
+          onChange={(e) => handleChange('nome', e.target.value)}
+          className={`h-12 rounded-xl ${errors.nome ? 'border-red-500' : ''}`}
+          disabled={loading}
         />
-        {errors.name && (
-          <p className="text-sm text-red-500">{errors.name}</p>
+        {errors.nome && (
+          <p className="text-sm text-red-500">{errors.nome}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="category" className="text-base font-medium text-gray-700">
-          Categoria
+        <Label htmlFor="categoria" className="text-base font-medium text-gray-700">
+          Categoria *
         </Label>
         <select
-          id="category"
-          value={formData.category}
-          onChange={(e) => handleChange('category', e.target.value)}
+          id="categoria"
+          value={formData.categoria}
+          onChange={(e) => handleChange('categoria', e.target.value)}
           className="w-full h-12 px-3 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          disabled={loading}
         >
           {categories.map(category => (
             <option key={category.id} value={category.id}>
@@ -101,34 +162,52 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="quantity" className="text-base font-medium text-gray-700">
-          Quantidade em Estoque
+        <Label htmlFor="quantidade" className="text-base font-medium text-gray-700">
+          Quantidade em Estoque *
         </Label>
         <Input
-          id="quantity"
+          id="quantidade"
           type="number"
           min="0"
           placeholder="0"
-          value={formData.quantity}
-          onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 0)}
-          className={`h-12 rounded-xl ${errors.quantity ? 'border-red-500' : ''}`}
+          value={formData.quantidade_disponivel}
+          onChange={(e) => handleChange('quantidade_disponivel', parseInt(e.target.value) || 0)}
+          className={`h-12 rounded-xl ${errors.quantidade_disponivel ? 'border-red-500' : ''}`}
+          disabled={loading}
         />
-        {errors.quantity && (
-          <p className="text-sm text-red-500">{errors.quantity}</p>
+        {errors.quantidade_disponivel && (
+          <p className="text-sm text-red-500">{errors.quantidade_disponivel}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="image" className="text-base font-medium text-gray-700">
+        <Label htmlFor="imagem" className="text-base font-medium text-gray-700">
           URL da Imagem (opcional)
         </Label>
         <Input
-          id="image"
+          id="imagem"
+          type="url"
           placeholder="https://exemplo.com/imagem.jpg"
-          value={formData.image}
-          onChange={(e) => handleChange('image', e.target.value)}
-          className="h-12 rounded-xl"
+          value={formData.imagem_url}
+          onChange={(e) => handleChange('imagem_url', e.target.value)}
+          className={`h-12 rounded-xl ${errors.imagem_url ? 'border-red-500' : ''}`}
+          disabled={loading}
         />
+        {errors.imagem_url && (
+          <p className="text-sm text-red-500">{errors.imagem_url}</p>
+        )}
+        {formData.imagem_url && isValidUrl(formData.imagem_url) && (
+          <div className="mt-2">
+            <img 
+              src={formData.imagem_url} 
+              alt="Preview"
+              className="w-32 h-32 object-cover rounded-xl border"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-4">
@@ -137,6 +216,7 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
           variant="outline"
           onClick={onCancel}
           className="flex-1 rounded-xl h-12"
+          disabled={loading}
         >
           Cancelar
         </Button>
@@ -144,8 +224,16 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
         <Button 
           type="submit"
           className="flex-1 bg-primary hover:bg-primary-600 text-white rounded-xl h-12"
+          disabled={loading}
         >
-          {product ? 'Atualizar' : 'Adicionar'}
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              {product ? 'Atualizando...' : 'Criando...'}
+            </>
+          ) : (
+            product ? 'Atualizar' : 'Criar Produto'
+          )}
         </Button>
       </div>
     </form>
