@@ -1,6 +1,6 @@
 
 import { useNavigate } from "react-router-dom";
-import { Package, Settings, ArrowRight } from "lucide-react";
+import { Package, Settings, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const Index = () => {
@@ -23,7 +23,7 @@ const Index = () => {
         </div>
 
         {/* Action Cards */}
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {/* Retirada Card */}
           <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
             <div className="flex items-center justify-center w-16 h-16 bg-primary-50 rounded-xl mb-6">
@@ -40,6 +40,26 @@ const Index = () => {
               className="w-full bg-primary hover:bg-primary-600 text-white rounded-xl h-12 text-lg font-medium"
             >
               Iniciar Retirada
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Adicionar Card */}
+          <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
+            <div className="flex items-center justify-center w-16 h-16 bg-yellow-50 rounded-xl mb-6">
+              <Plus className="w-8 h-8 text-yellow-600" />
+            </div>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              Adicionar Materiais
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Adicione novos produtos ao estoque ou aumente a quantidade dos existentes
+            </p>
+            <Button 
+              onClick={() => navigate('/adicionar')}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl h-12 text-lg font-medium"
+            >
+              Adicionar ao Estoque
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </div>
@@ -91,7 +111,7 @@ const Index = () => {
                 <span className="text-primary font-bold">📊</span>
               </div>
               <h4 className="font-medium text-gray-900 mb-2">Relatórios Completos</h4>
-              <p className="text-sm text-gray-600">Histórico detalhado de todas as retiradas</p>
+              <p className="text-sm text-gray-600">Histórico detalhado de todas as operações</p>
             </div>
           </div>
         </div>
