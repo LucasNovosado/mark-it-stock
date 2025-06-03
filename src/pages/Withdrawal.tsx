@@ -3,8 +3,7 @@ import { useState } from "react";
 import { ArrowLeft, Package, Camera, PenTool, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import CategorySelection from "@/components/withdrawal/CategorySelection";
-import ProductSelection from "@/components/withdrawal/ProductSelection";
+import ProductCatalog from "@/components/withdrawal/ProductCatalog";
 import WithdrawalForm from "@/components/withdrawal/WithdrawalForm";
 import PhotoCapture from "@/components/withdrawal/PhotoCapture";
 import SignatureCapture from "@/components/withdrawal/SignatureCapture";
@@ -12,13 +11,12 @@ import SuccessScreen from "@/components/withdrawal/SuccessScreen";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-type Step = 'category' | 'products' | 'form' | 'photo' | 'signature' | 'success';
+type Step = 'products' | 'form' | 'photo' | 'signature' | 'success';
 
 const Withdrawal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState<Step>('category');
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [currentStep, setCurrentStep] = useState<Step>('products');
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [formData, setFormData] = useState<any>({});
   const [photoData, setPhotoData] = useState<string>('');
@@ -26,7 +24,6 @@ const Withdrawal = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const steps = [
-    { id: 'category', label: 'Categoria', icon: Package },
     { id: 'products', label: 'Produtos', icon: Package },
     { id: 'form', label: 'Dados', icon: Package },
     { id: 'photo', label: 'Foto', icon: Camera },
@@ -37,17 +34,12 @@ const Withdrawal = () => {
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
 
   const handleBack = () => {
-    if (currentStep === 'category') {
+    if (currentStep === 'products') {
       navigate('/');
     } else {
       const prevStep = steps[currentStepIndex - 1];
       setCurrentStep(prevStep.id as Step);
     }
-  };
-
-  const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
-    setCurrentStep('products');
   };
 
   const handleProductsSelect = (products: any[]) => {
@@ -69,7 +61,6 @@ const Withdrawal = () => {
     try {
       setSubmitting(true);
       console.log('Submitting withdrawal with data:', {
-        category: selectedCategory,
         products: selectedProducts,
         form: formData,
         photo: photoData,
@@ -178,7 +169,7 @@ const Withdrawal = () => {
 
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {submitting && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
               <div className="bg-white rounded-2xl p-8 text-center">
@@ -188,14 +179,8 @@ const Withdrawal = () => {
             </div>
           )}
           
-          {currentStep === 'category' && (
-            <CategorySelection onSelect={handleCategorySelect} />
-          )}
           {currentStep === 'products' && (
-            <ProductSelection 
-              category={selectedCategory} 
-              onSelect={handleProductsSelect}
-            />
+            <ProductCatalog onSelect={handleProductsSelect} />
           )}
           {currentStep === 'form' && (
             <WithdrawalForm onSubmit={handleFormSubmit} />

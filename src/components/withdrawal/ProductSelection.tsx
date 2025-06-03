@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,7 +15,7 @@ interface Product {
 }
 
 interface ProductSelectionProps {
-  category: string;
+  category: 'grafico' | 'estrutura_lojas' | 'brindes';
   onSelect: (products: any[]) => void;
 }
 
