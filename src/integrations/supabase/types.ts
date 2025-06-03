@@ -9,7 +9,98 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      admins: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          nome: string
+          senha_hash: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          nome: string
+          senha_hash: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          nome?: string
+          senha_hash?: string
+        }
+        Relationships: []
+      }
+      produtos: {
+        Row: {
+          categoria: Database["public"]["Enums"]["categoria_produto"]
+          created_at: string | null
+          id: string
+          imagem_url: string | null
+          nome: string
+          quantidade_disponivel: number
+        }
+        Insert: {
+          categoria: Database["public"]["Enums"]["categoria_produto"]
+          created_at?: string | null
+          id?: string
+          imagem_url?: string | null
+          nome: string
+          quantidade_disponivel?: number
+        }
+        Update: {
+          categoria?: Database["public"]["Enums"]["categoria_produto"]
+          created_at?: string | null
+          id?: string
+          imagem_url?: string | null
+          nome?: string
+          quantidade_disponivel?: number
+        }
+        Relationships: []
+      }
+      retiradas: {
+        Row: {
+          assinatura_url: string | null
+          created_at: string | null
+          destino: string
+          foto_url: string | null
+          id: string
+          produto_id: string
+          quantidade: number
+          supervisor: string
+        }
+        Insert: {
+          assinatura_url?: string | null
+          created_at?: string | null
+          destino: string
+          foto_url?: string | null
+          id?: string
+          produto_id: string
+          quantidade: number
+          supervisor: string
+        }
+        Update: {
+          assinatura_url?: string | null
+          created_at?: string | null
+          destino?: string
+          foto_url?: string | null
+          id?: string
+          produto_id?: string
+          quantidade?: number
+          supervisor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retiradas_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +109,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      categoria_produto: "grafico" | "estrutura_lojas" | "brindes"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +224,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      categoria_produto: ["grafico", "estrutura_lojas", "brindes"],
+    },
   },
 } as const

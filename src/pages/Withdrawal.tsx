@@ -9,17 +9,21 @@ import WithdrawalForm from "@/components/withdrawal/WithdrawalForm";
 import PhotoCapture from "@/components/withdrawal/PhotoCapture";
 import SignatureCapture from "@/components/withdrawal/SignatureCapture";
 import SuccessScreen from "@/components/withdrawal/SuccessScreen";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type Step = 'category' | 'products' | 'form' | 'photo' | 'signature' | 'success';
 
 const Withdrawal = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState<Step>('category');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [formData, setFormData] = useState<any>({});
   const [photoData, setPhotoData] = useState<string>('');
   const [signatureData, setSignatureData] = useState<string>('');
+  const [submitting, setSubmitting] = useState(false);
 
   const steps = [
     { id: 'category', label: 'Categoria', icon: Package },
@@ -61,17 +65,61 @@ const Withdrawal = () => {
     setCurrentStep('signature');
   };
 
+  const submitWithdrawal = async (signatureUrl: string) => {
+    try {
+      setSubmitting(true);
+      console.log('Submitting withdrawal with data:', {
+        category: selectedCategory,
+        products: selectedProducts,
+        form: formData,
+        photo: photoData,
+        signature: signatureUrl
+      });
+
+      // Insert each product withdrawal
+      for (const product of selectedProducts) {
+        console.log('Inserting withdrawal for product:', product);
+        
+        const { data, error } = await supabase
+          .from('retiradas')
+          .insert({
+            produto_id: product.id,
+            quantidade: product.selectedQuantity,
+            destino: formData.destino,
+            supervisor: formData.supervisor,
+            foto_url: photoData,
+            assinatura_url: signatureUrl
+          });
+
+        if (error) {
+          console.error('Error inserting withdrawal:', error);
+          throw error;
+        }
+
+        console.log('Withdrawal inserted successfully:', data);
+      }
+
+      toast({
+        title: "Sucesso!",
+        description: "Retirada registrada com sucesso",
+      });
+
+      setCurrentStep('success');
+    } catch (error) {
+      console.error('Error submitting withdrawal:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar a retirada. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSignatureCapture = (signature: string) => {
     setSignatureData(signature);
-    // Aqui seria feita a submissão final para o banco
-    console.log('Dados completos:', {
-      category: selectedCategory,
-      products: selectedProducts,
-      form: formData,
-      photo: photoData,
-      signature: signature
-    });
-    setCurrentStep('success');
+    submitWithdrawal(signature);
   };
 
   return (
@@ -83,6 +131,7 @@ const Withdrawal = () => {
             <Button
               variant="ghost"
               onClick={handleBack}
+              disabled={submitting}
               className="rounded-xl"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />
@@ -91,7 +140,7 @@ const Withdrawal = () => {
             <h1 className="text-xl font-semibold text-gray-900">
               Retirada de Materiais
             </h1>
-            <div className="w-20" /> {/* Spacer */}
+            <div className="w-20" />
           </div>
         </div>
       </div>
@@ -130,6 +179,15 @@ const Withdrawal = () => {
       {/* Content */}
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
+          {submitting && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-lg font-semibold">Registrando retirada...</p>
+              </div>
+            </div>
+          )}
+          
           {currentStep === 'category' && (
             <CategorySelection onSelect={handleCategorySelect} />
           )}

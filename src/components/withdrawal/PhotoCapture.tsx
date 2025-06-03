@@ -3,6 +3,8 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Camera, Upload, RotateCcw } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface PhotoCaptureProps {
   onCapture: (photo: string) => void;
@@ -11,21 +13,28 @@ interface PhotoCaptureProps {
 const PhotoCapture = ({ onCapture }: PhotoCaptureProps) => {
   const [capturedPhoto, setCapturedPhoto] = useState<string>('');
   const [isCapturing, setIsCapturing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const startCamera = async () => {
     try {
       setIsCapturing(true);
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } // Preferir câmera traseira
+        video: { facingMode: 'environment' }
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (error) {
       console.error('Erro ao acessar a câmera:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível acessar a câmera",
+        variant: "destructive",
+      });
       setIsCapturing(false);
     }
   };
@@ -44,7 +53,6 @@ const PhotoCapture = ({ onCapture }: PhotoCaptureProps) => {
         const dataURL = canvas.toDataURL('image/jpeg', 0.8);
         setCapturedPhoto(dataURL);
         
-        // Parar o stream da câmera
         const stream = video.srcObject as MediaStream;
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
@@ -66,6 +74,52 @@ const PhotoCapture = ({ onCapture }: PhotoCaptureProps) => {
     }
   };
 
+  const uploadPhoto = async (photoDataUrl: string): Promise<string | null> => {
+    try {
+      setUploading(true);
+      
+      // Convert data URL to blob
+      const response = await fetch(photoDataUrl);
+      const blob = await response.blob();
+      
+      // Generate unique filename
+      const fileName = `retirada-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.jpg`;
+      
+      console.log('Uploading photo:', fileName);
+      
+      const { data, error } = await supabase.storage
+        .from('retiradas-fotos')
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+
+      console.log('Upload successful:', data);
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('retiradas-fotos')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer upload da foto",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const retakePhoto = () => {
     setCapturedPhoto('');
     if (fileInputRef.current) {
@@ -73,8 +127,13 @@ const PhotoCapture = ({ onCapture }: PhotoCaptureProps) => {
     }
   };
 
-  const confirmPhoto = () => {
-    onCapture(capturedPhoto);
+  const confirmPhoto = async () => {
+    if (capturedPhoto) {
+      const photoUrl = await uploadPhoto(capturedPhoto);
+      if (photoUrl) {
+        onCapture(photoUrl);
+      }
+    }
   };
 
   return (
@@ -161,6 +220,7 @@ const PhotoCapture = ({ onCapture }: PhotoCaptureProps) => {
               <Button
                 variant="outline"
                 onClick={retakePhoto}
+                disabled={uploading}
                 className="flex-1 rounded-xl h-12 text-lg font-medium"
               >
                 <RotateCcw className="w-5 h-5 mr-2" />
@@ -169,9 +229,10 @@ const PhotoCapture = ({ onCapture }: PhotoCaptureProps) => {
               
               <Button
                 onClick={confirmPhoto}
+                disabled={uploading}
                 className="flex-1 bg-primary hover:bg-primary-600 text-white rounded-xl h-12 text-lg font-medium"
               >
-                Confirmar
+                {uploading ? "Enviando..." : "Confirmar"}
               </Button>
             </div>
           </div>

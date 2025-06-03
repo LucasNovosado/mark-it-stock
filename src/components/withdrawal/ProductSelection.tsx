@@ -1,9 +1,19 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface Product {
+  id: string;
+  nome: string;
+  quantidade_disponivel: number;
+  categoria: string;
+  imagem_url?: string;
+}
 
 interface ProductSelectionProps {
   category: string;
@@ -12,27 +22,47 @@ interface ProductSelectionProps {
 
 const ProductSelection = ({ category, onSelect }: ProductSelectionProps) => {
   const [selectedProducts, setSelectedProducts] = useState<{[key: string]: number}>({});
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  // Dados mock dos produtos (em produção viria do Supabase)
-  const mockProducts = {
-    grafico: [
-      { id: '1', name: 'Banner Roll-up', available: 15, image: '/api/placeholder/300/200' },
-      { id: '2', name: 'Flyers A4', available: 500, image: '/api/placeholder/300/200' },
-      { id: '3', name: 'Cartaz A3', available: 25, image: '/api/placeholder/300/200' },
-    ],
-    estrutura_lojas: [
-      { id: '4', name: 'Display de Mesa', available: 8, image: '/api/placeholder/300/200' },
-      { id: '5', name: 'Suporte de Chão', available: 5, image: '/api/placeholder/300/200' },
-      { id: '6', name: 'Mobiliário Promocional', available: 3, image: '/api/placeholder/300/200' },
-    ],
-    brindes: [
-      { id: '7', name: 'Canetas Personalizadas', available: 200, image: '/api/placeholder/300/200' },
-      { id: '8', name: 'Chaveiros', available: 150, image: '/api/placeholder/300/200' },
-      { id: '9', name: 'Camisetas', available: 50, image: '/api/placeholder/300/200' },
-    ],
+  useEffect(() => {
+    fetchProducts();
+  }, [category]);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching products for category:', category);
+      
+      const { data, error } = await supabase
+        .from('produtos')
+        .select('*')
+        .eq('categoria', category);
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os produtos",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log('Products fetched:', data);
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao carregar produtos",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const products = mockProducts[category as keyof typeof mockProducts] || [];
 
   const handleQuantityChange = (productId: string, change: number) => {
     const product = products.find(p => p.id === productId);
@@ -40,7 +70,7 @@ const ProductSelection = ({ category, onSelect }: ProductSelectionProps) => {
 
     setSelectedProducts(prev => {
       const currentQty = prev[productId] || 0;
-      const newQty = Math.max(0, Math.min(product.available, currentQty + change));
+      const newQty = Math.max(0, Math.min(product.quantidade_disponivel, currentQty + change));
       
       if (newQty === 0) {
         const { [productId]: removed, ...rest } = prev;
@@ -61,6 +91,23 @@ const ProductSelection = ({ category, onSelect }: ProductSelectionProps) => {
 
   const totalSelected = Object.values(selectedProducts).reduce((sum, qty) => sum + qty, 0);
 
+  if (loading) {
+    return (
+      <div className="animate-fade-in text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        <p className="mt-4 text-gray-600">Carregando produtos...</p>
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div className="animate-fade-in text-center py-8">
+        <p className="text-gray-600">Nenhum produto encontrado nesta categoria.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
       <div className="text-center mb-8">
@@ -77,15 +124,23 @@ const ProductSelection = ({ category, onSelect }: ProductSelectionProps) => {
           <Card key={product.id} className="p-6 rounded-2xl border-2 hover:border-primary-200 transition-all duration-300">
             <div className="flex items-center space-x-6">
               <div className="w-24 h-24 bg-gray-100 rounded-xl flex items-center justify-center">
-                <span className="text-4xl">📦</span>
+                {product.imagem_url ? (
+                  <img 
+                    src={product.imagem_url} 
+                    alt={product.nome}
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                ) : (
+                  <span className="text-4xl">📦</span>
+                )}
               </div>
               
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {product.name}
+                  {product.nome}
                 </h3>
                 <Badge variant="outline" className="text-sm">
-                  {product.available} disponíveis
+                  {product.quantidade_disponivel} disponíveis
                 </Badge>
               </div>
 
@@ -108,7 +163,7 @@ const ProductSelection = ({ category, onSelect }: ProductSelectionProps) => {
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuantityChange(product.id, 1)}
-                  disabled={selectedProducts[product.id] >= product.available}
+                  disabled={selectedProducts[product.id] >= product.quantidade_disponivel}
                   className="w-10 h-10 rounded-xl"
                 >
                   <Plus className="w-4 h-4" />

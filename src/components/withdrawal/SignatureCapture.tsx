@@ -3,6 +3,8 @@ import { useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PenTool, RotateCcw } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface SignatureCaptureProps {
   onCapture: (signature: string) => void;
@@ -12,6 +14,8 @@ const SignatureCapture = ({ onCapture }: SignatureCaptureProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
 
   const startDrawing = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -73,12 +77,61 @@ const SignatureCapture = ({ onCapture }: SignatureCaptureProps) => {
     setHasSignature(false);
   };
 
-  const confirmSignature = () => {
+  const uploadSignature = async (signatureDataUrl: string): Promise<string | null> => {
+    try {
+      setUploading(true);
+      
+      // Convert data URL to blob
+      const response = await fetch(signatureDataUrl);
+      const blob = await response.blob();
+      
+      // Generate unique filename
+      const fileName = `assinatura-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.png`;
+      
+      console.log('Uploading signature:', fileName);
+      
+      const { data, error } = await supabase.storage
+        .from('assinaturas')
+        .upload(fileName, blob, {
+          contentType: 'image/png',
+          upsert: false
+        });
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+
+      console.log('Upload successful:', data);
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('assinaturas')
+        .getPublicUrl(fileName);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading signature:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível fazer upload da assinatura",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const confirmSignature = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const dataURL = canvas.toDataURL('image/png');
-    onCapture(dataURL);
+    const signatureUrl = await uploadSignature(dataURL);
+    if (signatureUrl) {
+      onCapture(signatureUrl);
+    }
   };
 
   return (
@@ -124,7 +177,7 @@ const SignatureCapture = ({ onCapture }: SignatureCaptureProps) => {
             <Button
               variant="outline"
               onClick={clearSignature}
-              disabled={!hasSignature}
+              disabled={!hasSignature || uploading}
               className="flex-1 rounded-xl h-12 text-lg font-medium"
             >
               <RotateCcw className="w-5 h-5 mr-2" />
@@ -133,10 +186,10 @@ const SignatureCapture = ({ onCapture }: SignatureCaptureProps) => {
             
             <Button
               onClick={confirmSignature}
-              disabled={!hasSignature}
+              disabled={!hasSignature || uploading}
               className="flex-1 bg-primary hover:bg-primary-600 text-white rounded-xl h-12 text-lg font-medium"
             >
-              Confirmar
+              {uploading ? "Enviando..." : "Confirmar"}
             </Button>
           </div>
         </div>
