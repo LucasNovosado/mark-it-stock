@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AddQuantityModal from "./AddQuantityModal";
 import { ProductService } from "@/services/productService";
+import { CategoryType } from "@/types/database";
 
 interface Product {
   id: string;
@@ -232,7 +233,7 @@ const ProductSearch = ({ onNewProduct, searchTerm, setSearchTerm }: ProductSearc
                 
                 <div className="mb-4">
                   <Badge className="text-sm px-3 py-1 bg-blue-100 text-blue-800">
-                    {ProductService.getCategoryName(product.categoria)}
+                    {ProductService.getCategoryName(product.categoria as CategoryType)}
                   </Badge>
                 </div>
 

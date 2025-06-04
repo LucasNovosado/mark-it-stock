@@ -1,3 +1,4 @@
+
 // src/components/admin/WithdrawalHistory.tsx
 import { useState } from "react";
 import { Search, Download, Calendar, Eye, RefreshCw, AlertCircle } from "lucide-react";
@@ -15,7 +16,7 @@ import {
 import { useWithdrawals } from "@/hooks/use-withdrawals";
 import { WithdrawalService } from "@/services/withdrawalService";
 import { ProductService } from "@/services/productService";
-import { WithdrawalFilters } from "@/types/database";
+import { WithdrawalFilters, CategoryType } from "@/types/database";
 
 const WithdrawalHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -203,7 +204,7 @@ const WithdrawalHistory = () => {
                       <strong>Produto:</strong> {withdrawal.produto?.nome || 'Produto não encontrado'}
                       {withdrawal.produto?.categoria && (
                         <Badge variant="secondary" className="ml-2 text-xs">
-                          {ProductService.getCategoryName(withdrawal.produto.categoria)}
+                          {ProductService.getCategoryName(withdrawal.produto.categoria as CategoryType)}
                         </Badge>
                       )}
                     </div>
@@ -244,7 +245,7 @@ const WithdrawalHistory = () => {
                           <p className="font-medium">{withdrawal.produto?.nome || 'Produto não encontrado'}</p>
                           {withdrawal.produto?.categoria && (
                             <Badge variant="secondary" className="mt-2">
-                              {ProductService.getCategoryName(withdrawal.produto.categoria)}
+                              {ProductService.getCategoryName(withdrawal.produto.categoria as CategoryType)}
                             </Badge>
                           )}
                         </div>
