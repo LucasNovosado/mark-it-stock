@@ -7,6 +7,7 @@ import { Minus, Plus, ShoppingCart, Search, Package, Store, Gift } from "lucide-
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import ProductGallery from "@/components/ui/product-gallery";
+import QuantityInput from "@/components/ui/quantity-input";
 
 interface Product {
   id: string;
@@ -98,20 +99,20 @@ const ProductCatalog = ({ onSelect }: ProductCatalogProps) => {
     setFilteredProducts(filtered);
   };
 
-  const handleQuantityChange = (productId: string, change: number) => {
+  const handleQuantityChange = (productId: string, newQuantity: number) => {
     const product = products.find(p => p.id === productId);
     if (!product) return;
 
     setSelectedProducts(prev => {
-      const currentQty = prev[productId] || 0;
-      const newQty = Math.max(0, Math.min(product.quantidade_disponivel, currentQty + change));
+      // Ensure quantity doesn't exceed available stock
+      const validQuantity = Math.max(0, Math.min(product.quantidade_disponivel, newQuantity));
       
-      if (newQty === 0) {
+      if (validQuantity === 0) {
         const { [productId]: removed, ...rest } = prev;
         return rest;
       }
       
-      return { ...prev, [productId]: newQty };
+      return { ...prev, [productId]: validQuantity };
     });
   };
 
@@ -239,33 +240,15 @@ const ProductCatalog = ({ onSelect }: ProductCatalogProps) => {
                     </Badge>
                   </div>
 
-                  {/* Quantity Controls */}
+                  {/* Quantity Controls with new QuantityInput */}
                   {product.quantidade_disponivel > 0 && (
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg md:rounded-xl p-2 md:p-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuantityChange(product.id, -1)}
-                        disabled={!selectedProducts[product.id]}
-                        className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl border-2 p-0"
-                      >
-                        <Minus className="w-3 h-3 md:w-4 md:h-4" />
-                      </Button>
-                      
-                      <span className="text-lg md:text-xl font-bold text-primary min-w-[2rem] md:min-w-[3rem] text-center">
-                        {selectedProducts[product.id] || 0}
-                      </span>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuantityChange(product.id, 1)}
-                        disabled={selectedProducts[product.id] >= product.quantidade_disponivel}
-                        className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl border-2 p-0"
-                      >
-                        <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                      </Button>
-                    </div>
+                    <QuantityInput
+                      value={selectedProducts[product.id] || 0}
+                      onChange={(quantity) => handleQuantityChange(product.id, quantity)}
+                      max={product.quantidade_disponivel}
+                      min={0}
+                      className="w-full"
+                    />
                   )}
                 </div>
               </Card>
