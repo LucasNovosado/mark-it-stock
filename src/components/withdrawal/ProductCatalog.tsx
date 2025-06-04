@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Minus, Plus, ShoppingCart, Search, Package, Store, Gift } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import ProductGallery from "@/components/ui/product-gallery";
 
 interface Product {
   id: string;
@@ -14,6 +14,10 @@ interface Product {
   quantidade_disponivel: number;
   categoria: string;
   imagem_url?: string;
+  image_1_url?: string;
+  image_2_url?: string;
+  image_3_url?: string;
+  imagem_capa_index?: number;
 }
 
 interface ProductCatalogProps {
@@ -121,6 +125,24 @@ const ProductCatalog = ({ onSelect }: ProductCatalogProps) => {
 
   const totalSelected = Object.values(selectedProducts).reduce((sum, qty) => sum + qty, 0);
 
+  const getProductImages = (product: Product): string[] => {
+    const images: string[] = [];
+    if (product.image_1_url) images.push(product.image_1_url);
+    if (product.image_2_url) images.push(product.image_2_url);
+    if (product.image_3_url) images.push(product.image_3_url);
+    
+    // Fallback para imagem antiga se não há imagens novas
+    if (images.length === 0 && product.imagem_url) {
+      images.push(product.imagem_url);
+    }
+    
+    return images;
+  };
+
+  const getProductCoverIndex = (product: Product): number => {
+    return Math.max(0, (product.imagem_capa_index || 1) - 1);
+  };
+
   if (loading) {
     return (
       <div className="animate-fade-in text-center py-12">
@@ -185,70 +207,70 @@ const ProductCatalog = ({ onSelect }: ProductCatalogProps) => {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-6 mb-8">
-          {filteredProducts.map((product) => (
-            <Card key={product.id} className="overflow-hidden rounded-xl md:rounded-2xl border-2 hover:border-primary-200 hover:shadow-xl transition-all duration-300 bg-white">
-              {/* Product Image */}
-              <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                {product.imagem_url ? (
-                  <img 
-                    src={product.imagem_url} 
-                    alt={product.nome}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-3xl md:text-6xl opacity-50">📦</div>
-                )}
-              </div>
-              
-              {/* Product Info */}
-              <div className="p-3 md:p-6">
-                <h3 className="text-sm md:text-lg font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
-                  {product.nome}
-                </h3>
+          {filteredProducts.map((product) => {
+            const productImages = getProductImages(product);
+            const coverIndex = getProductCoverIndex(product);
+            
+            return (
+              <Card key={product.id} className="overflow-hidden rounded-xl md:rounded-2xl border-2 hover:border-primary-200 hover:shadow-xl transition-all duration-300 bg-white">
+                {/* Product Image with Gallery */}
+                <ProductGallery
+                  images={productImages}
+                  coverIndex={coverIndex}
+                  productName={product.nome}
+                  className="rounded-t-xl md:rounded-t-2xl"
+                />
                 
-                <div className="mb-3 md:mb-4">
-                  <Badge 
-                    variant={product.quantidade_disponivel > 0 ? "default" : "destructive"}
-                    className="text-xs md:text-sm px-2 md:px-3 py-1"
-                  >
-                    {product.quantidade_disponivel > 0 
-                      ? `${product.quantidade_disponivel} disp.`
-                      : 'Indisponível'
-                    }
-                  </Badge>
-                </div>
-
-                {/* Quantity Controls */}
-                {product.quantidade_disponivel > 0 && (
-                  <div className="flex items-center justify-between bg-gray-50 rounded-lg md:rounded-xl p-2 md:p-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuantityChange(product.id, -1)}
-                      disabled={!selectedProducts[product.id]}
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl border-2 p-0"
+                {/* Product Info */}
+                <div className="p-3 md:p-6">
+                  <h3 className="text-sm md:text-lg font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight">
+                    {product.nome}
+                  </h3>
+                  
+                  <div className="mb-3 md:mb-4">
+                    <Badge 
+                      variant={product.quantidade_disponivel > 0 ? "default" : "destructive"}
+                      className="text-xs md:text-sm px-2 md:px-3 py-1"
                     >
-                      <Minus className="w-3 h-3 md:w-4 md:h-4" />
-                    </Button>
-                    
-                    <span className="text-lg md:text-xl font-bold text-primary min-w-[2rem] md:min-w-[3rem] text-center">
-                      {selectedProducts[product.id] || 0}
-                    </span>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuantityChange(product.id, 1)}
-                      disabled={selectedProducts[product.id] >= product.quantidade_disponivel}
-                      className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl border-2 p-0"
-                    >
-                      <Plus className="w-3 h-3 md:w-4 md:h-4" />
-                    </Button>
+                      {product.quantidade_disponivel > 0 
+                        ? `${product.quantidade_disponivel} disp.`
+                        : 'Indisponível'
+                      }
+                    </Badge>
                   </div>
-                )}
-              </div>
-            </Card>
-          ))}
+
+                  {/* Quantity Controls */}
+                  {product.quantidade_disponivel > 0 && (
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg md:rounded-xl p-2 md:p-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuantityChange(product.id, -1)}
+                        disabled={!selectedProducts[product.id]}
+                        className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl border-2 p-0"
+                      >
+                        <Minus className="w-3 h-3 md:w-4 md:h-4" />
+                      </Button>
+                      
+                      <span className="text-lg md:text-xl font-bold text-primary min-w-[2rem] md:min-w-[3rem] text-center">
+                        {selectedProducts[product.id] || 0}
+                      </span>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuantityChange(product.id, 1)}
+                        disabled={selectedProducts[product.id] >= product.quantidade_disponivel}
+                        className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl border-2 p-0"
+                      >
+                        <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 

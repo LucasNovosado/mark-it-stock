@@ -5,6 +5,10 @@ export interface Product {
   categoria: 'grafico' | 'estrutura_lojas' | 'brindes';
   quantidade_disponivel: number;
   imagem_url: string | null;
+  image_1_url: string | null;
+  image_2_url: string | null;
+  image_3_url: string | null;
+  imagem_capa_index: number | null;
   created_at: string;
 }
 

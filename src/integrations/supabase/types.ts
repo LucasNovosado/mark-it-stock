@@ -62,6 +62,10 @@ export type Database = {
           categoria: Database["public"]["Enums"]["categoria_produto"]
           created_at: string | null
           id: string
+          image_1_url: string | null
+          image_2_url: string | null
+          image_3_url: string | null
+          imagem_capa_index: number | null
           imagem_url: string | null
           nome: string
           quantidade_disponivel: number
@@ -70,6 +74,10 @@ export type Database = {
           categoria: Database["public"]["Enums"]["categoria_produto"]
           created_at?: string | null
           id?: string
+          image_1_url?: string | null
+          image_2_url?: string | null
+          image_3_url?: string | null
+          imagem_capa_index?: number | null
           imagem_url?: string | null
           nome: string
           quantidade_disponivel?: number
@@ -78,6 +86,10 @@ export type Database = {
           categoria?: Database["public"]["Enums"]["categoria_produto"]
           created_at?: string | null
           id?: string
+          image_1_url?: string | null
+          image_2_url?: string | null
+          image_3_url?: string | null
+          imagem_capa_index?: number | null
           imagem_url?: string | null
           nome?: string
           quantidade_disponivel?: number

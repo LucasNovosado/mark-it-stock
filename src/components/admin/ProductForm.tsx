@@ -1,3 +1,4 @@
+
 // src/components/admin/ProductForm.tsx
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ProductService } from "@/services/productService";
 import { Product } from "@/types/database";
+import ImageUpload from "@/components/ui/image-upload";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -18,9 +20,10 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
     nome: '',
     categoria: 'grafico' as 'grafico' | 'estrutura_lojas' | 'brindes',
     quantidade_disponivel: 0,
-    imagem_url: ''
   });
 
+  const [images, setImages] = useState<string[]>([]);
+  const [coverIndex, setCoverIndex] = useState(0);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -31,8 +34,16 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
         nome: product.nome || '',
         categoria: product.categoria || 'grafico',
         quantidade_disponivel: product.quantidade_disponivel || 0,
-        imagem_url: product.imagem_url || ''
       });
+
+      // Carregar imagens existentes
+      const productImages: string[] = [];
+      if (product.image_1_url) productImages.push(product.image_1_url);
+      if (product.image_2_url) productImages.push(product.image_2_url);
+      if (product.image_3_url) productImages.push(product.image_3_url);
+      
+      setImages(productImages);
+      setCoverIndex(Math.max(0, (product.imagem_capa_index || 1) - 1));
     }
   }, [product]);
 
@@ -54,10 +65,6 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
     if (formData.quantidade_disponivel < 0) {
       newErrors.quantidade_disponivel = 'Quantidade deve ser positiva';
     }
-
-    if (formData.imagem_url && !isValidUrl(formData.imagem_url)) {
-      newErrors.imagem_url = 'URL da imagem inválida';
-    }
     
     setErrors(newErrors);
     
@@ -65,14 +72,20 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
       setLoading(true);
       
       try {
+        const productData = {
+          nome: formData.nome.trim(),
+          categoria: formData.categoria,
+          quantidade_disponivel: formData.quantidade_disponivel,
+          imagem_url: images[coverIndex] || null, // Manter compatibilidade
+          image_1_url: images[0] || null,
+          image_2_url: images[1] || null,
+          image_3_url: images[2] || null,
+          imagem_capa_index: images.length > 0 ? coverIndex + 1 : 1,
+        };
+
         if (product) {
           // Atualizar produto existente
-          await ProductService.updateProduct(product.id, {
-            nome: formData.nome.trim(),
-            categoria: formData.categoria,
-            quantidade_disponivel: formData.quantidade_disponivel,
-            imagem_url: formData.imagem_url.trim() || null
-          });
+          await ProductService.updateProduct(product.id, productData);
           
           toast({
             title: "Sucesso",
@@ -80,12 +93,7 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
           });
         } else {
           // Criar novo produto
-          await ProductService.createProduct({
-            nome: formData.nome.trim(),
-            categoria: formData.categoria,
-            quantidade_disponivel: formData.quantidade_disponivel,
-            imagem_url: formData.imagem_url.trim() || null
-          });
+          await ProductService.createProduct(productData);
           
           toast({
             title: "Sucesso",
@@ -114,13 +122,9 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
     }
   };
 
-  const isValidUrl = (url: string): boolean => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
+  const handleImagesChange = (newImages: string[], newCoverIndex: number) => {
+    setImages(newImages);
+    setCoverIndex(newCoverIndex);
   };
 
   return (
@@ -181,33 +185,19 @@ const ProductForm = ({ product, onSave, onCancel }: ProductFormProps) => {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="imagem" className="text-base font-medium text-gray-700">
-          URL da Imagem (opcional)
+        <Label className="text-base font-medium text-gray-700">
+          Imagens do Produto (até 3)
         </Label>
-        <Input
-          id="imagem"
-          type="url"
-          placeholder="https://exemplo.com/imagem.jpg"
-          value={formData.imagem_url}
-          onChange={(e) => handleChange('imagem_url', e.target.value)}
-          className={`h-12 rounded-xl ${errors.imagem_url ? 'border-red-500' : ''}`}
-          disabled={loading}
+        <p className="text-sm text-gray-600 mb-4">
+          Adicione até 3 imagens e clique na estrela para definir a imagem de capa
+        </p>
+        <ImageUpload
+          images={images}
+          coverIndex={coverIndex}
+          onImagesChange={handleImagesChange}
+          productId={product?.id}
+          maxImages={3}
         />
-        {errors.imagem_url && (
-          <p className="text-sm text-red-500">{errors.imagem_url}</p>
-        )}
-        {formData.imagem_url && isValidUrl(formData.imagem_url) && (
-          <div className="mt-2">
-            <img 
-              src={formData.imagem_url} 
-              alt="Preview"
-              className="w-32 h-32 object-cover rounded-xl border"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          </div>
-        )}
       </div>
 
       <div className="flex gap-3 pt-4">
