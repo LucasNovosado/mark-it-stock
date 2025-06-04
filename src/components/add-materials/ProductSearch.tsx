@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Search, Plus, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -83,14 +84,34 @@ const ProductSearch = ({ onNewProduct, searchTerm, setSearchTerm }: ProductSearc
 
   const handleAddQuantity = async (productId: string, quantity: number) => {
     try {
-      const { error } = await supabase
+      console.log('Adding quantity:', { productId, quantity });
+      
+      // Buscar o produto atual para obter a quantidade atual
+      const { data: currentProduct, error: fetchError } = await supabase
         .from('produtos')
-        .update({ 
-          quantidade_disponivel: supabase.sql`quantidade_disponivel + ${quantity}`
-        })
+        .select('quantidade_disponivel')
+        .eq('id', productId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching current product:', fetchError);
+        throw fetchError;
+      }
+
+      const newQuantity = currentProduct.quantidade_disponivel + quantity;
+      
+      console.log('Updating quantity from', currentProduct.quantidade_disponivel, 'to', newQuantity);
+
+      // Atualizar com a nova quantidade
+      const { error: updateError } = await supabase
+        .from('produtos')
+        .update({ quantidade_disponivel: newQuantity })
         .eq('id', productId);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('Error updating product quantity:', updateError);
+        throw updateError;
+      }
 
       toast({
         title: "Sucesso!",

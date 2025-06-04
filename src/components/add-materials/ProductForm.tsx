@@ -34,6 +34,7 @@ const ProductForm = ({ onBack, searchTerm }: ProductFormProps) => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      console.log('Image file selected:', file.name, file.type, file.size);
       setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -51,26 +52,61 @@ const ProductForm = ({ onBack, searchTerm }: ProductFormProps) => {
   };
 
   const uploadImage = async (): Promise<string | null> => {
-    if (!imageFile) return null;
+    if (!imageFile) {
+      console.log('No image file to upload');
+      return null;
+    }
 
     try {
+      console.log('Starting image upload...');
+      
+      // Create a unique filename
       const fileExt = imageFile.name.split('.').pop();
-      const fileName = `product-${Date.now()}.${fileExt}`;
+      const fileName = `product-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `products/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      console.log('Uploading to path:', filePath);
+
+      // Check if bucket exists, if not create it
+      const { data: buckets } = await supabase.storage.listBuckets();
+      const bucketExists = buckets?.some(bucket => bucket.name === 'product-images');
+      
+      if (!bucketExists) {
+        console.log('Creating product-images bucket...');
+        const { error: bucketError } = await supabase.storage.createBucket('product-images', {
+          public: true,
+        });
+        if (bucketError) {
+          console.error('Error creating bucket:', bucketError);
+          throw bucketError;
+        }
+      }
+
+      // Upload the file
+      const { data, error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(filePath, imageFile);
+        .upload(filePath, imageFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Error uploading file:', uploadError);
+        throw uploadError;
+      }
 
-      const { data } = supabase.storage
+      console.log('File uploaded successfully:', data);
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage
         .from('product-images')
         .getPublicUrl(filePath);
 
-      return data.publicUrl;
+      console.log('Public URL:', urlData.publicUrl);
+      return urlData.publicUrl;
+      
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error('Error in uploadImage:', error);
       toast({
         title: "Erro",
         description: "Erro ao fazer upload da imagem",
@@ -95,10 +131,18 @@ const ProductForm = ({ onBack, searchTerm }: ProductFormProps) => {
     setLoading(true);
 
     try {
+      console.log('Starting form submission...');
+      
       // Upload image if provided
-      const imageUrl = await uploadImage();
+      let imageUrl: string | null = null;
+      if (imageFile) {
+        console.log('Uploading image...');
+        imageUrl = await uploadImage();
+        console.log('Image upload result:', imageUrl);
+      }
 
       // Check if product already exists
+      console.log('Checking if product exists:', formData.nome.trim());
       const { data: existingProduct } = await supabase
         .from('produtos')
         .select('id, quantidade_disponivel')
@@ -106,13 +150,21 @@ const ProductForm = ({ onBack, searchTerm }: ProductFormProps) => {
         .single();
 
       if (existingProduct) {
+        console.log('Product exists, updating quantity...');
         // Update existing product quantity
+        const newQuantity = existingProduct.quantidade_disponivel + formData.quantidade;
+        const updateData: any = { 
+          quantidade_disponivel: newQuantity
+        };
+        
+        // Only update image if a new one was uploaded
+        if (imageUrl) {
+          updateData.imagem_url = imageUrl;
+        }
+
         const { error } = await supabase
           .from('produtos')
-          .update({ 
-            quantidade_disponivel: existingProduct.quantidade_disponivel + formData.quantidade,
-            ...(imageUrl && { imagem_url: imageUrl })
-          })
+          .update(updateData)
           .eq('id', existingProduct.id);
 
         if (error) throw error;
@@ -123,15 +175,22 @@ const ProductForm = ({ onBack, searchTerm }: ProductFormProps) => {
           variant: "default",
         });
       } else {
+        console.log('Creating new product...');
         // Create new product
+        const productData: any = {
+          nome: formData.nome.trim(),
+          categoria: formData.categoria,
+          quantidade_disponivel: formData.quantidade,
+        };
+
+        // Only add image URL if it exists
+        if (imageUrl) {
+          productData.imagem_url = imageUrl;
+        }
+
         const { error } = await supabase
           .from('produtos')
-          .insert({
-            nome: formData.nome.trim(),
-            categoria: formData.categoria,
-            quantidade_disponivel: formData.quantidade,
-            imagem_url: imageUrl,
-          });
+          .insert(productData);
 
         if (error) throw error;
 

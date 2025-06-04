@@ -33,6 +33,30 @@ export type Database = {
         }
         Relationships: []
       }
+      categoria: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          descricao: string | null
+          id: number
+          name: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          id?: number
+          name?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          id?: number
+          name?: string | null
+        }
+        Relationships: []
+      }
       produtos: {
         Row: {
           categoria: Database["public"]["Enums"]["categoria_produto"]
